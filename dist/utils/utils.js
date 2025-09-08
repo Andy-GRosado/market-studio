@@ -1,4 +1,9 @@
 "use strict";
+/**
+ *
+ * @param response {HTTP Response} Response provided by a request
+ * @returns {Promise<string>} Promise with html string parsed to UTF-8 encoding
+ */
 var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
     function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
     return new (P || (P = Promise))(function (resolve, reject) {
@@ -10,11 +15,6 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUtf8Text = void 0;
-/**
- *
- * @param response {HTTP Response} Response provided by a request
- * @returns {Promise<string>} Promise with html string parsed to UTF-8 encoding
- */
 const getUtf8Text = (response) => __awaiter(void 0, void 0, void 0, function* () {
     const contentType = response.headers.get('Content-Type');
     const charsetMatch = contentType === null || contentType === void 0 ? void 0 : contentType.match(/charset=([a-zA-Z0-9-]+)/);

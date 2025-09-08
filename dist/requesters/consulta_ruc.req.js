@@ -8,11 +8,18 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
         step((generator = generator.apply(thisArg, _arguments || [])).next());
     });
 };
+var __asyncValues = (this && this.__asyncValues) || function (o) {
+    if (!Symbol.asyncIterator) throw new TypeError("Symbol.asyncIterator is not defined.");
+    var m = o[Symbol.asyncIterator], i;
+    return m ? m.call(o) : (o = typeof __values === "function" ? __values(o) : o[Symbol.iterator](), i = {}, verb("next"), verb("throw"), verb("return"), i[Symbol.asyncIterator] = function () { return this; }, i);
+    function verb(n) { i[n] = o[n] && function (v) { return new Promise(function (resolve, reject) { v = o[n](v), settle(resolve, reject, v.done, v.value); }); }; }
+    function settle(resolve, reject, d, v) { Promise.resolve(v).then(function(v) { resolve({ value: v, done: d }); }, reject); }
+};
 var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.BusinnessRequesterByDNI = exports.BusinnessRequesterByRUC = exports.BaseRequester = void 0;
+exports.BusinnessRequesterByDNI = exports.BusinnessRequesterByRUCv3 = exports.BusinnessRequesterByRUCv2 = exports.BusinnessRequesterByRUC = exports.BaseRequester = void 0;
 const cheerio_1 = require("cheerio");
 const utils_1 = require("../utils/utils");
 const tough_cookie_1 = require("tough-cookie");
@@ -21,27 +28,21 @@ const cookieJar = new tough_cookie_1.CookieJar();
 class BaseRequester {
 }
 exports.BaseRequester = BaseRequester;
+/***
+ * Default business requester
+ */
 class BusinnessRequesterByRUC extends BaseRequester {
     constructor() {
         super();
-        // Parsing the economic activity
-        this.parseEconomicActivity = (raw_data) => {
-            if (raw_data == undefined)
-                return raw_data;
-            let values = raw_data.split('-').map((item) => item.trim());
-            return {
-                cod: values[1],
-                description: values[2]
-            };
-        };
         // Parsing the business data
-        this.parseBusiness = (ruc, html_general, html_trabajadores, html_locales) => __awaiter(this, void 0, void 0, function* () {
+        this.parseBusiness = (ruc, html_general, html_trabajadores, html_locales, html_rrll) => __awaiter(this, void 0, void 0, function* () {
             let document = (0, cheerio_1.load)(html_general);
             let data_general = document('.list-group-item');
             if (data_general.length === 0) {
                 throw new Error('No data found');
             }
             let parsed_trabajadores = this.parseWorkers(html_trabajadores);
+            let parsed_rrll = this.parseLegalRepresentative(html_rrll);
             let parsed_domicilio_fiscal = this.parseUbication(document('div:contains("Domicilio Fiscal:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace(/\s+/g, ' '));
             let parsed_actividad_economica_principal = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[0]);
             let parsed_actividad_economica_secundaria = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[1] || undefined);
@@ -63,6 +64,7 @@ class BusinnessRequesterByRUC extends BaseRequester {
                 provincia: parsed_domicilio_fiscal.provincia,
                 departamento: parsed_domicilio_fiscal.departamento,
                 locales: parsed_locales,
+                representante_legal: parsed_rrll,
             };
             if (parsed_trabajadores) {
                 raw_data.trabajadores = parsed_trabajadores;
@@ -100,16 +102,23 @@ class BusinnessRequesterByRUC extends BaseRequester {
         };
         this.payload_trabajadores = {
             accion: 'getCantTrab',
-            nroRuc: '20123456789',
+            modo: '1',
             contexto: 'ti-it',
-            modo: '1'
+            nroRuc: '20123456789',
         };
         this.payload_locales = {
             accion: 'getLocAnex',
-            nroRuc: '20123456789',
-            contexto: 'ti-it',
             modo: '1',
-            desRuc: ''
+            contexto: 'ti-it',
+            desRuc: '',
+            nroRuc: '20123456789',
+        };
+        this.payload_rrll = {
+            accion: 'getRepLeg',
+            modo: '1',
+            contexto: 'ti-it',
+            desRuc: '',
+            nroRuc: '20610222171',
         };
     }
     parseWorkers(html) {
@@ -167,6 +176,28 @@ class BusinnessRequesterByRUC extends BaseRequester {
         result.cantidad = result.locales.length;
         return result;
     }
+    // Parsing the economic activity
+    parseEconomicActivity(raw_data) {
+        if (raw_data == undefined)
+            return raw_data;
+        let values = raw_data.split('-').map((item) => item.trim());
+        return {
+            cod: values[1],
+            description: values[2]
+        };
+    }
+    ;
+    parseLegalRepresentative(html) {
+        const document = (0, cheerio_1.load)(html);
+        const values = document('body').find('td').map((_, item) => document(item).text().replace(/\s+/g, ' ').trim()).get();
+        return {
+            tipo_documento: values.length >= 1 ? values[0] : '',
+            documento: values.length >= 2 ? values[1] : '',
+            nombre: values.length >= 3 ? values[2] : '',
+            cargo: values.length >= 4 ? values[3] : '',
+            fecha: values.length >= 5 ? values[4] : ''
+        };
+    }
     /**
      *
      * @param data - The business RUC - number 11 digits
@@ -177,6 +208,7 @@ class BusinnessRequesterByRUC extends BaseRequester {
             try {
                 this.payload_general['nroRuc'] = data;
                 this.payload_trabajadores['nroRuc'] = data;
+                this.payload_locales['nroRuc'] = data;
                 this.payload_locales['nroRuc'] = data;
                 const fetchWithCookies = (0, fetch_cookie_1.default)(fetch, cookieJar);
                 let response_general = yield fetchWithCookies(this.base_url, {
@@ -194,28 +226,693 @@ class BusinnessRequesterByRUC extends BaseRequester {
                     headers: this.headers,
                     body: new URLSearchParams(this.payload_locales).toString(),
                 });
+                let response_rrll = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_rrll).toString(),
+                });
                 // Check if both responses are OK
-                if (!response_general.ok || !response_trabajadores.ok || !response_locales.ok) {
-                    throw new Error(`HTTP error! status: [${response_general.status}] [${response_trabajadores.status}] [${response_locales.status}]`);
+                if (!response_general.ok || !response_trabajadores.ok || !response_locales.ok || !response_rrll.ok) {
+                    throw new Error(`HTTP error! status: [${response_general.status}] [${response_trabajadores.status}] [${response_locales.status}] [${response_rrll.status}]`);
                 }
-                const [html_general, html_trabajadores, html_locales] = yield Promise.all([response_general, response_trabajadores, response_locales].map((item) => (0, utils_1.getUtf8Text)(item)));
-                // let html_general = await getUtf8Text(response_general);
-                // let html_trabajadores = await getUtf8Text(response_trabajadores);
-                // let html_locales = await getUtf8Text(response_locales);
-                return yield this.parseBusiness(data, html_general, html_trabajadores, html_locales);
+                const [html_general, html_trabajadores, html_locales, html_rrll] = yield Promise.all([
+                    response_general,
+                    response_trabajadores,
+                    response_locales,
+                    response_rrll
+                ].map((item) => (0, utils_1.getUtf8Text)(item)));
+                return yield this.parseBusiness(data, html_general, html_trabajadores, html_locales, html_rrll);
             }
             catch (e) {
-                throw Error(`Error fetching data for RUC ${data}: ${e.message}`);
+                throw e;
+                throw new Error(`Error fetching data for RUC ${data}: ${e}`);
             }
         });
     }
     fetch_data(data) {
         return __awaiter(this, void 0, void 0, function* () {
-            return [yield this.getBusinessInformationByRUC(data)];
+            return yield this.getBusinessInformationByRUC(data);
+        });
+    }
+    fetch_bulk_data(data) {
+        return __awaiter(this, void 0, void 0, function* () {
+            return [];
         });
     }
 }
 exports.BusinnessRequesterByRUC = BusinnessRequesterByRUC;
+/***
+ * Improved business requester
+ */
+class BusinnessRequesterByRUCv2 extends BaseRequester {
+    constructor() {
+        super();
+        this.base_url = 'https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias';
+        this.method = 'POST';
+        this.headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        };
+        this.payload_general = {
+            accion: 'consPorRuc',
+            nroRuc: '20123456789',
+            token: '17weghazm68ik95e33loa9ut2ttomx0rn9b0wf6izye2tllztqy2',
+            contexto: 'ti-it',
+            modo: '1'
+        };
+        this.payload_trabajadores = {
+            accion: 'getCantTrab',
+            modo: '1',
+            contexto: 'ti-it',
+            nroRuc: '20123456789',
+        };
+        this.payload_locales = {
+            accion: 'getLocAnex',
+            modo: '1',
+            contexto: 'ti-it',
+            desRuc: '',
+            nroRuc: '20123456789',
+        };
+        this.payload_rrll = {
+            accion: 'getRepLeg',
+            modo: '1',
+            contexto: 'ti-it',
+            desRuc: '',
+            nroRuc: '20610222171',
+        };
+    }
+    // Parsing the economic activity
+    parseEconomicActivity(raw_data) {
+        if (raw_data == undefined)
+            return raw_data;
+        let values = raw_data.split('-').map((item) => item.trim());
+        return {
+            cod: values[1],
+            description: values[2]
+        };
+    }
+    ;
+    parseUbication(address) {
+        var _a, _b;
+        const departamentos_peru = ['AMAZONAS', 'ANCASH', 'APURIMAC', 'AREQUIPA', 'AYACUCHO', 'CAJAMARCA', 'PROV. CONST. DEL CALLAO', 'CUSCO', 'HUANCAVELICA', 'HUANUCO', 'ICA', 'JUNIN', 'LA LIBERTAD', 'LAMBAYEQUE', 'LIMA', 'LORETO', 'MADRE DE DIOS', 'MOQUEGUA', 'PASCO', 'PIURA', 'PUNO', 'SAN MARTIN', 'TACNA', 'TUMBES', 'UCAYALI'];
+        let result = {
+            direccion: address.replace(/\s+/g, ' ').trim(),
+            departamento: '',
+            provincia: '',
+            distrito: ''
+        };
+        let streams = address.split('-');
+        if (streams.length >= 3) {
+            result.distrito = ((_a = streams.pop()) === null || _a === void 0 ? void 0 : _a.trim()) || '-';
+            result.provincia = ((_b = streams.pop()) === null || _b === void 0 ? void 0 : _b.trim()) || '-';
+            const partial_address = [...streams].join(' ').trim();
+            result.departamento = departamentos_peru.find((item) => partial_address.endsWith(item)) || '';
+        }
+        return result;
+    }
+    parseLocales(ruc, html) {
+        const document = (0, cheerio_1.load)(html);
+        const table = document('table.table');
+        if (!table.length)
+            return {
+                ruc: ruc,
+                cantidad: 0,
+                locales: []
+            };
+        const result = { ruc: ruc, cantidad: 0, locales: [] };
+        table.find('tbody tr').each((index, row) => {
+            const columns = document(row).find('td');
+            result.locales.push({
+                codigo: document(columns[0]).text().trim(),
+                tipo: document(columns[1]).text().trim(),
+                ubicacion: this.parseUbication(document(columns[2]).text().trim()),
+                actividad_economica: document(columns[3]).text().trim()
+            });
+        });
+        result.cantidad = result.locales.length;
+        return result;
+    }
+    parseWorkers(ruc, html) {
+        const document = (0, cheerio_1.load)(html);
+        const table = document('table.table');
+        if (!table.length)
+            return undefined;
+        const result = {};
+        table.find('tbody tr').each((_, row) => {
+            const columns = document(row).find('td');
+            result[document(columns[0]).text().trim()] = {
+                trabajadores: parseInt(document(columns[1]).text().trim()) || 0,
+                pensionistas: parseInt(document(columns[2]).text().trim()) || 0,
+                prestadores_servicios: parseInt(document(columns[3]).text().trim()) || 0,
+            };
+        });
+        if (Object.values(result).length <= 0)
+            return undefined;
+        const { trabajadores: last_trabajadores, pensionistas: last_pensionistas, prestadores_servicios: last_prestadores_servicios } = Object.values(result).at(-1);
+        return {
+            ruc: ruc,
+            trabajadores: last_trabajadores,
+            pensionistas: last_pensionistas,
+            prestadores_servicios: last_prestadores_servicios,
+            historial: result
+        };
+    }
+    ;
+    parseLegalRepresentative(ruc, html) {
+        const document = (0, cheerio_1.load)(html);
+        const values = document('body').find('td').map((_, item) => document(item).text().replace(/\s+/g, ' ').trim()).get();
+        if (values.length <= 0)
+            return undefined;
+        return {
+            ruc: ruc,
+            tipo_documento: values.length >= 1 ? values[0] : 'NO ENCONTRADO',
+            documento: values.length >= 2 ? values[1] : 'NO ENCONTRADO',
+            nombre: values.length >= 3 ? values[2] : 'NO ENCONTRADO',
+            cargo: values.length >= 4 ? values[3] : 'NO ENCONTRADO',
+            fecha: values.length >= 5 ? values[4] : 'NO ENCONTRADO'
+        };
+    }
+    parseBusiness(ruc, html_general) {
+        let document = (0, cheerio_1.load)(html_general);
+        let data_general = document('.list-group-item');
+        if (data_general.length === 0) {
+            throw new Error('No data found');
+        }
+        let parsed_domicilio_fiscal = this.parseUbication(document('div:contains("Domicilio Fiscal:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace(/\s+/g, ' '));
+        let parsed_actividad_economica_principal = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[0]);
+        let parsed_actividad_economica_secundaria = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[1] || undefined);
+        let raw_data = {
+            ruc: ruc,
+            razon_social: document('div:contains("Número de RUC:")').closest('.list-group-item').find('.row .col-sm-7 h4').text().trim().split('-').slice(1).join('-').trim(),
+            tipo_contribuyente: document('div:contains("Tipo Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().trim(),
+            nombre_comercial: document('div:contains("Nombre Comercial:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace('Afecto al Nuevo RUS: SI', '').trim(),
+            fecha_inscripcion: document('div:contains("Fecha de Inscripción:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(0).text().trim(),
+            fecha_inicio_actividades: document('div:contains("Fecha de Inicio de Actividades:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(1).text().trim(),
+            estado_contribuyente: document('div:contains("Estado del Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().split('Fecha')[0].trim(),
+            condicion_contribuyente: document('div:contains("Condición del Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().split('Fecha')[0].trim(),
+            sistema_emision_comprobante: document('div:contains("Sistema Emisión de Comprobante:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(0).text().trim(),
+            actividad_exterior: document('div:contains("Actividad Comercio Exterior:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(1).text().trim(),
+            domicilio_fiscal: parsed_domicilio_fiscal,
+            actividad_economica_principal: parsed_actividad_economica_principal,
+            actividad_economica_secundaria: parsed_actividad_economica_secundaria,
+        };
+        let possible_estado_constribuyente = ["INACTIVO", "ACTIVO", "SUSPENSION TEMPORAL", "BAJA PROVISIONAL DE OFICIO", "BAJA PROVISIONAL", "BAJA DEFINITIVA DE OFICIO", "BAJA DEFINITIVA"]
+            .filter((item) => raw_data.estado_contribuyente.includes(item))[0];
+        let possible_condicion_contribuyente = ["NO HABIDO", "HABIDO", "NO HALLADO"]
+            .filter((item) => raw_data.condicion_contribuyente.includes(item))[0];
+        raw_data.estado_contribuyente = (possible_estado_constribuyente && possible_estado_constribuyente.length > 0) ? possible_estado_constribuyente : raw_data.estado_contribuyente;
+        raw_data.condicion_contribuyente = (possible_condicion_contribuyente && possible_condicion_contribuyente.length > 0) ? possible_condicion_contribuyente : raw_data.condicion_contribuyente;
+        return raw_data;
+    }
+    ;
+    fetch_business(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_general['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_general = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_general).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_general.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS GENERAL): [${response_general.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_general = yield (0, utils_1.getUtf8Text)(response_general);
+                // Parse the informtation to an object
+                return this.parseBusiness(ruc, html_general); // Ensure parseBusiness is async if it returns a Promise
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_employees(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_trabajadores['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_trabajadores = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_trabajadores).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_trabajadores.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS EMPLOYEES): [${response_trabajadores.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_trabajadores = yield (0, utils_1.getUtf8Text)(response_trabajadores);
+                // Parse the informtation to an object
+                const response = this.parseWorkers(ruc, html_trabajadores);
+                return response;
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_locales(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_locales['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_locales = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_locales).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_locales.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS LOCALES): [${response_locales.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_locales = yield (0, utils_1.getUtf8Text)(response_locales);
+                // Parse the informtation to an object
+                const response = this.parseLocales(ruc, html_locales);
+                return response;
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_rrll(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_rrll['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_rrll = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_rrll).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_rrll.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS REPRESENTANTE): [${response_rrll.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_rrll = yield (0, utils_1.getUtf8Text)(response_rrll);
+                // Parse the informtation to an object
+                const response = this.parseLegalRepresentative(ruc, html_rrll);
+                return response;
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_data(ruc) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const fetchWithCookies = (0, fetch_cookie_1.default)(fetch, cookieJar);
+            return {
+                ruc: ruc,
+                general: yield this.fetch_business(ruc, fetchWithCookies),
+                employees: yield this.fetch_employees(ruc, fetchWithCookies),
+                locales: yield this.fetch_locales(ruc, fetchWithCookies),
+                representante_legal: yield this.fetch_rrll(ruc, fetchWithCookies),
+                last_update: new Date()
+            };
+        });
+    }
+    fetch_bulk_data(rucs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, rucs_1, rucs_1_1;
+            var _b, e_1, _c, _d;
+            const fetchWithCookies = (0, fetch_cookie_1.default)(fetch, cookieJar);
+            const responses = [];
+            try {
+                for (_a = true, rucs_1 = __asyncValues(rucs); rucs_1_1 = yield rucs_1.next(), _b = rucs_1_1.done, !_b; _a = true) {
+                    _d = rucs_1_1.value;
+                    _a = false;
+                    const ruc = _d;
+                    const [business, employees, locales, rrll] = [
+                        yield this.fetch_business(ruc, fetchWithCookies),
+                        yield this.fetch_employees(ruc, fetchWithCookies),
+                        yield this.fetch_locales(ruc, fetchWithCookies),
+                        yield this.fetch_rrll(ruc, fetchWithCookies),
+                    ];
+                    responses.push({
+                        ruc: ruc,
+                        general: business,
+                        employees: employees,
+                        locales: locales,
+                        representante_legal: rrll,
+                        last_update: new Date()
+                    });
+                }
+            }
+            catch (e_1_1) { e_1 = { error: e_1_1 }; }
+            finally {
+                try {
+                    if (!_a && !_b && (_c = rucs_1.return)) yield _c.call(rucs_1);
+                }
+                finally { if (e_1) throw e_1.error; }
+            }
+            return responses;
+        });
+    }
+}
+exports.BusinnessRequesterByRUCv2 = BusinnessRequesterByRUCv2;
+/***
+ * Experimental business requester to separate logic of request and parsing
+ */
+class BusinnessRequesterByRUCv3 extends BaseRequester {
+    constructor() {
+        super();
+        this.base_url = 'https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias';
+        this.method = 'POST';
+        this.headers = {
+            'Content-Type': 'application/x-www-form-urlencoded'
+        };
+        this.payload_general = {
+            accion: 'consPorRuc',
+            nroRuc: '20123456789',
+            token: '17weghazm68ik95e33loa9ut2ttomx0rn9b0wf6izye2tllztqy2',
+            contexto: 'ti-it',
+            modo: '1'
+        };
+        this.payload_trabajadores = {
+            accion: 'getCantTrab',
+            modo: '1',
+            contexto: 'ti-it',
+            nroRuc: '20123456789',
+        };
+        this.payload_locales = {
+            accion: 'getLocAnex',
+            modo: '1',
+            contexto: 'ti-it',
+            desRuc: '',
+            nroRuc: '20123456789',
+        };
+        this.payload_rrll = {
+            accion: 'getRepLeg',
+            modo: '1',
+            contexto: 'ti-it',
+            desRuc: '',
+            nroRuc: '20610222171',
+        };
+    }
+    // Parsing the economic activity
+    parseEconomicActivity(raw_data) {
+        if (raw_data == undefined)
+            return raw_data;
+        let values = raw_data.split('-').map((item) => item.trim());
+        return {
+            cod: values[1],
+            description: values[2]
+        };
+    }
+    ;
+    parseUbication(address) {
+        var _a, _b;
+        const departamentos_peru = ['AMAZONAS', 'ANCASH', 'APURIMAC', 'AREQUIPA', 'AYACUCHO', 'CAJAMARCA', 'PROV. CONST. DEL CALLAO ', 'CUSCO', 'HUANCAVELICA', 'HUANUCO', 'ICA', 'JUNIN', 'LA LIBERTAD', 'LAMBAYEQUE', 'LIMA', 'LORETO', 'MADRE DE DIOS', 'MOQUEGUA', 'PASCO', 'PIURA', 'PUNO', 'SAN MARTIN', 'TACNA', 'TUMBES', 'UCAYALI'];
+        let result = {
+            direccion: address.replace(/\s+/g, ' ').trim(),
+            departamento: '',
+            provincia: '',
+            distrito: ''
+        };
+        let streams = address.split('-');
+        if (streams.length >= 3) {
+            result.distrito = ((_a = streams.pop()) === null || _a === void 0 ? void 0 : _a.trim()) || '-';
+            result.provincia = ((_b = streams.pop()) === null || _b === void 0 ? void 0 : _b.trim()) || '-';
+            result.departamento = departamentos_peru.find((item) => [...streams].join(' ').split(' ').slice(-1 * item.split(' ').length).join(' ').includes(item)) || '';
+        }
+        return result;
+    }
+    parseLocales(ruc, html) {
+        const document = (0, cheerio_1.load)(html);
+        const table = document('table.table');
+        if (!table.length)
+            return {
+                ruc: ruc,
+                cantidad: 0,
+                locales: []
+            };
+        const result = { ruc: ruc, cantidad: 0, locales: [] };
+        table.find('tbody tr').each((index, row) => {
+            const columns = document(row).find('td');
+            result.locales.push({
+                codigo: document(columns[0]).text().trim(),
+                tipo: document(columns[1]).text().trim(),
+                ubicacion: this.parseUbication(document(columns[2]).text().trim()),
+                actividad_economica: document(columns[3]).text().trim()
+            });
+        });
+        result.cantidad = result.locales.length;
+        return result;
+    }
+    parseWorkers(ruc, html) {
+        const document = (0, cheerio_1.load)(html);
+        const table = document('table.table');
+        if (!table.length)
+            return undefined;
+        const result = {};
+        table.find('tbody tr').each((_, row) => {
+            const columns = document(row).find('td');
+            result[document(columns[0]).text().trim()] = {
+                trabajadores: parseInt(document(columns[1]).text().trim()) || 0,
+                pensionistas: parseInt(document(columns[2]).text().trim()) || 0,
+                prestadores_servicios: parseInt(document(columns[3]).text().trim()) || 0,
+            };
+        });
+        if (Object.values(result).length <= 0)
+            return undefined;
+        const { trabajadores: last_trabajadores, pensionistas: last_pensionistas, prestadores_servicios: last_prestadores_servicios } = Object.values(result).at(-1);
+        return {
+            ruc: ruc,
+            trabajadores: last_trabajadores,
+            pensionistas: last_pensionistas,
+            prestadores_servicios: last_prestadores_servicios,
+            historial: result
+        };
+    }
+    ;
+    parseLegalRepresentative(ruc, html) {
+        const document = (0, cheerio_1.load)(html);
+        const values = document('body').find('td').map((_, item) => document(item).text().replace(/\s+/g, ' ').trim()).get();
+        if (values.length <= 0)
+            return undefined;
+        return {
+            ruc: ruc,
+            tipo_documento: values.length >= 1 ? values[0] : 'NO ENCONTRADO',
+            documento: values.length >= 2 ? values[1] : 'NO ENCONTRADO',
+            nombre: values.length >= 3 ? values[2] : 'NO ENCONTRADO',
+            cargo: values.length >= 4 ? values[3] : 'NO ENCONTRADO',
+            fecha: values.length >= 5 ? values[4] : 'NO ENCONTRADO'
+        };
+    }
+    parseBusiness(ruc, html_general) {
+        let document = (0, cheerio_1.load)(html_general);
+        let data_general = document('.list-group-item');
+        if (data_general.length === 0) {
+            throw new Error('No data found');
+        }
+        let parsed_domicilio_fiscal = this.parseUbication(document('div:contains("Domicilio Fiscal:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace(/\s+/g, ' '));
+        let parsed_actividad_economica_principal = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[0]);
+        let parsed_actividad_economica_secundaria = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[1] || undefined);
+        let raw_data = {
+            ruc: ruc,
+            razon_social: document('div:contains("Número de RUC:")').closest('.list-group-item').find('.row .col-sm-7 h4').text().trim().split('-').slice(1).join('-').trim(),
+            tipo_contribuyente: document('div:contains("Tipo Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().trim(),
+            nombre_comercial: document('div:contains("Nombre Comercial:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace('Afecto al Nuevo RUS: SI', '').trim(),
+            fecha_inscripcion: document('div:contains("Fecha de Inscripción:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(0).text().trim(),
+            fecha_inicio_actividades: document('div:contains("Fecha de Inicio de Actividades:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(1).text().trim(),
+            estado_contribuyente: document('div:contains("Estado del Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().split('Fecha')[0].trim(),
+            condicion_contribuyente: document('div:contains("Condición del Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().split('Fecha')[0].trim(),
+            sistema_emision_comprobante: document('div:contains("Sistema Emisión de Comprobante:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(0).text().trim(),
+            actividad_exterior: document('div:contains("Actividad Comercio Exterior:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(1).text().trim(),
+            domicilio_fiscal: parsed_domicilio_fiscal,
+            actividad_economica_principal: parsed_actividad_economica_principal,
+            actividad_economica_secundaria: parsed_actividad_economica_secundaria,
+        };
+        let possible_estado_constribuyente = ["INACTIVO", "ACTIVO", "SUSPENSION TEMPORAL", "BAJA PROVISIONAL DE OFICIO", "BAJA PROVISIONAL", "BAJA DEFINITIVA DE OFICIO", "BAJA DEFINITIVA"]
+            .filter((item) => raw_data.estado_contribuyente.includes(item))[0];
+        let possible_condicion_contribuyente = ["NO HABIDO", "HABIDO", "NO HALLADO"]
+            .filter((item) => raw_data.condicion_contribuyente.includes(item))[0];
+        raw_data.estado_contribuyente = (possible_estado_constribuyente && possible_estado_constribuyente.length > 0) ? possible_estado_constribuyente : raw_data.estado_contribuyente;
+        raw_data.condicion_contribuyente = (possible_condicion_contribuyente && possible_condicion_contribuyente.length > 0) ? possible_condicion_contribuyente : raw_data.condicion_contribuyente;
+        return raw_data;
+    }
+    ;
+    fetch_business(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_general['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_general = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_general).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_general.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS GENERAL): [${response_general.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_general = yield (0, utils_1.getUtf8Text)(response_general);
+                // Parse the informtation to an object
+                return () => this.parseBusiness(ruc, html_general); // Ensure parseBusiness is async if it returns a Promise
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_employees(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_trabajadores['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_trabajadores = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_trabajadores).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_trabajadores.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS EMPLOYEES): [${response_trabajadores.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_trabajadores = yield (0, utils_1.getUtf8Text)(response_trabajadores);
+                // Parse the informtation to an object
+                return () => this.parseWorkers(ruc, html_trabajadores);
+                ;
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_locales(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_locales['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_locales = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_locales).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_locales.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS LOCALES): [${response_locales.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_locales = yield (0, utils_1.getUtf8Text)(response_locales);
+                // Parse the informtation to an object
+                return () => this.parseLocales(ruc, html_locales);
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_rrll(ruc, fetcher) {
+        return __awaiter(this, void 0, void 0, function* () {
+            try {
+                // Update the ruc of business before request
+                this.payload_rrll['nroRuc'] = ruc;
+                const fetchWithCookies = fetcher !== null && fetcher !== void 0 ? fetcher : (0, fetch_cookie_1.default)(fetch, cookieJar);
+                let response_rrll = yield fetchWithCookies(this.base_url, {
+                    method: this.method,
+                    headers: this.headers,
+                    body: new URLSearchParams(this.payload_rrll).toString(),
+                });
+                // Verify if the request was successfull
+                if (!response_rrll.ok) {
+                    throw new Error(`HTTP error! status (BUSINESS REPRESENTANTE): [${response_rrll.status}]`);
+                }
+                // Set the characters to UTF-8
+                const html_rrll = yield (0, utils_1.getUtf8Text)(response_rrll);
+                // Parse the informtation to an object
+                return () => this.parseLegalRepresentative(ruc, html_rrll);
+            }
+            catch (e) {
+                throw e;
+            }
+        });
+    }
+    fetch_data(ruc) {
+        return __awaiter(this, void 0, void 0, function* () {
+            const fetchWithCookies = (0, fetch_cookie_1.default)(fetch, cookieJar);
+            const [business, employees, locales, rrll] = yield Promise.all([
+                yield this.fetch_business(ruc, fetchWithCookies),
+                yield this.fetch_employees(ruc, fetchWithCookies),
+                yield this.fetch_locales(ruc, fetchWithCookies),
+                yield this.fetch_rrll(ruc, fetchWithCookies),
+            ]);
+            return {
+                business: business,
+                employees: employees,
+                locales: locales,
+                representante_legal: rrll,
+            };
+        });
+    }
+    fetch_bulk_data(rucs) {
+        return __awaiter(this, void 0, void 0, function* () {
+            var _a, rucs_2, rucs_2_1;
+            var _b, e_2, _c, _d, _e, e_3, _f, _g;
+            const fetchWithCookies = (0, fetch_cookie_1.default)(fetch, cookieJar);
+            const data_to_parse = [];
+            try {
+                for (_a = true, rucs_2 = __asyncValues(rucs); rucs_2_1 = yield rucs_2.next(), _b = rucs_2_1.done, !_b; _a = true) {
+                    _d = rucs_2_1.value;
+                    _a = false;
+                    const ruc = _d;
+                    console.time(`${ruc} requested`);
+                    data_to_parse.push([
+                        yield this.fetch_business(ruc, fetchWithCookies),
+                        yield this.fetch_employees(ruc, fetchWithCookies),
+                        yield this.fetch_locales(ruc, fetchWithCookies),
+                        yield this.fetch_rrll(ruc, fetchWithCookies),
+                    ]);
+                }
+            }
+            catch (e_2_1) { e_2 = { error: e_2_1 }; }
+            finally {
+                try {
+                    if (!_a && !_b && (_c = rucs_2.return)) yield _c.call(rucs_2);
+                }
+                finally { if (e_2) throw e_2.error; }
+            }
+            const responses = [];
+            try {
+                for (var _h = true, data_to_parse_1 = __asyncValues(data_to_parse), data_to_parse_1_1; data_to_parse_1_1 = yield data_to_parse_1.next(), _e = data_to_parse_1_1.done, !_e; _h = true) {
+                    _g = data_to_parse_1_1.value;
+                    _h = false;
+                    const data = _g;
+                    const [business, employees, locales, rrll] = yield Promise.all(data);
+                    responses.push({
+                        business: business(),
+                        employees: employees(),
+                        locales: locales(),
+                        representante_legal: rrll(),
+                    });
+                }
+            }
+            catch (e_3_1) { e_3 = { error: e_3_1 }; }
+            finally {
+                try {
+                    if (!_h && !_e && (_f = data_to_parse_1.return)) yield _f.call(data_to_parse_1);
+                }
+                finally { if (e_3) throw e_3.error; }
+            }
+            return responses;
+        });
+    }
+}
+exports.BusinnessRequesterByRUCv3 = BusinnessRequesterByRUCv3;
 class BusinnessRequesterByDNI extends BusinnessRequesterByRUC {
     constructor() {
         super();
@@ -323,7 +1020,7 @@ class BusinnessRequesterByDNI extends BusinnessRequesterByRUC {
                     business_information.push(element.value);
                 }
             });
-            return business_information;
+            return business_information[0];
         });
     }
 }

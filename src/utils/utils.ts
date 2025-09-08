@@ -4,6 +4,7 @@
  * @param response {HTTP Response} Response provided by a request
  * @returns {Promise<string>} Promise with html string parsed to UTF-8 encoding
  */
+
 export const getUtf8Text = async (response: Response): Promise<string> => {
   const contentType = response.headers.get('Content-Type');
   const charsetMatch = contentType?.match(/charset=([a-zA-Z0-9-]+)/);

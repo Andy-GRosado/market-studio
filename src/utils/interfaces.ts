@@ -18,7 +18,15 @@ export interface ILocal {
   ubicacion: IAddress,
 }
 
-export interface IConsultaRuc {
+export interface ILegalRepresentative {
+  tipo_documento: string,
+  documento: string,
+  nombre: string,
+  cargo: string,
+  fecha: string
+}
+
+export interface IConsultaRucv1 {
   id: string,
   razon_social: string,
   tipo_contribuyente: string,
@@ -50,7 +58,57 @@ export interface IConsultaRuc {
   }
   actividad_economica_secundaria_cod?: string,
   last_update?: Date,
+
+  representante_legal: ILegalRepresentative,
 }
+
+export interface IBusiness {
+  ruc: string,
+  razon_social: string,
+  tipo_contribuyente: string,
+  nombre_comercial: string,
+  fecha_inscripcion: string,
+  fecha_inicio_actividades: string,
+  estado_contribuyente: string,
+  condicion_contribuyente: string,
+  sistema_emision_comprobante: string,
+  actividad_exterior: string,
+  domicilio_fiscal?: IAddress,
+  actividad_economica_principal?: {
+    cod: string,
+    description: string
+  },
+  actividad_economica_secundaria?: {
+    cod: string,
+    description: string
+  }
+}
+
+export interface IBusinessEmployees extends IEmployees {
+  ruc: string,
+  historial: Record<string,IEmployees> // 2024-3: { trabajadores: XX, pensionistas: XX, prestadores_servicios: XX }
+}
+
+export interface IBusinessLocales {
+  ruc: string,
+  cantidad: number,
+  locales: ILocal[]
+}
+
+export interface IBusinessLegalRepresentative extends ILegalRepresentative {
+  ruc: string,
+}
+
+export interface IConsultaRucv2 {
+  ruc: string,
+  general: IBusiness,
+  employees?: IBusinessEmployees,
+  locales?: IBusinessLocales,
+  representante_legal?: IBusinessLegalRepresentative
+  last_update?: Date
+}
+
+
 
 export interface IChecaTuLinea {
   id: string,

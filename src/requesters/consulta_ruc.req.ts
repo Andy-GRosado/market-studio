@@ -3,7 +3,6 @@ import { IBusiness, IBusinessEmployees, IBusinessLegalRepresentative, IBusinessL
 import { getUtf8Text } from "../utils/utils";
 import { CookieJar } from 'tough-cookie';
 import fetchCookie, { FetchCookieImpl } from 'fetch-cookie';
-import { data, val } from "cheerio/dist/commonjs/api/attributes";
 
 const cookieJar = new CookieJar();
 
@@ -279,6 +278,7 @@ export class BusinnessRequesterByRUC extends BaseRequester<string, IConsultaRucv
  * Improved business requester
  */
 export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRuc> {
+  private cookie_jar = new CookieJar()
   private base_url: string;
   private method: string;
   private headers: any;
@@ -322,8 +322,6 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
       nroRuc: '20610222171',
     }
   }
-
-
 
   // Parsing the economic activity
   private parseEconomicActivity(raw_data: string | undefined): { cod: string, description: string } | undefined {
@@ -470,7 +468,7 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
     try {
       // Update the ruc of business before request
       this.payload_general['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
+      const fetchWithCookies = fetcher ?? fetchCookie(fetch, this.cookie_jar);
       let response_general = await fetchWithCookies(this.base_url, {
         method: this.method,
         headers: this.headers,
@@ -497,7 +495,7 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
     try {
       // Update the ruc of business before request
       this.payload_trabajadores['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
+      const fetchWithCookies = fetcher ?? fetchCookie(fetch, this.cookie_jar);
       let response_trabajadores = await fetchWithCookies(this.base_url, {
         method: this.method,
         headers: this.headers,
@@ -524,7 +522,7 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
     try {
       // Update the ruc of business before request
       this.payload_locales['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
+      const fetchWithCookies = fetcher ?? fetchCookie(fetch, this.cookie_jar);
       let response_locales = await fetchWithCookies(this.base_url, {
         method: this.method,
         headers: this.headers,
@@ -551,7 +549,7 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
     try {
       // Update the ruc of business before request
       this.payload_rrll['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
+      const fetchWithCookies = fetcher ?? fetchCookie(fetch, this.cookie_jar);
       let response_rrll = await fetchWithCookies(this.base_url, {
         method: this.method,
         headers: this.headers,
@@ -575,7 +573,7 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
   }
 
   override async fetch_data(ruc: string): Promise<IConsultaRuc> {
-    const fetchWithCookies = fetchCookie(fetch, cookieJar);
+    const fetchWithCookies = fetchCookie(fetch, this.cookie_jar);
     return {
       ruc: ruc,
       general: await this.fetch_business(ruc, fetchWithCookies),
@@ -587,7 +585,7 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
   }
 
   async fetch_bulk_data(rucs: string[]): Promise<IConsultaRuc[]> {
-    const fetchWithCookies = fetchCookie(fetch, cookieJar);
+    const fetchWithCookies = fetchCookie(fetch, this.cookie_jar);
 
     const responses: IConsultaRuc[] = []
     for await (const ruc of rucs) {
@@ -605,345 +603,6 @@ export class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRu
         locales: locales,
         representante_legal: rrll,
         last_update: new Date()
-      })
-    }
-
-    return responses;
-  }
-}
-
-/***
- * Experimental business requester to separate logic of request and parsing
- */
-export class BusinnessRequesterByRUCv3 extends BaseRequester<string, IConsultaRucv1> {
-  private base_url: string;
-  private method: string;
-  private headers: any;
-  private payload_general: any;
-  private payload_trabajadores: any;
-  private payload_locales: any;
-  private payload_rrll: any;
-
-  constructor() {
-    super()
-    this.base_url = 'https://e-consultaruc.sunat.gob.pe/cl-ti-itmrconsruc/jcrS00Alias';
-    this.method = 'POST';
-    this.headers = {
-      'Content-Type': 'application/x-www-form-urlencoded'
-    };
-    this.payload_general = {
-      accion: 'consPorRuc',
-      nroRuc: '20123456789',
-      token: '17weghazm68ik95e33loa9ut2ttomx0rn9b0wf6izye2tllztqy2',
-      contexto: 'ti-it',
-      modo: '1'
-    };
-    this.payload_trabajadores = {
-      accion: 'getCantTrab',
-      modo: '1',
-      contexto: 'ti-it',
-      nroRuc: '20123456789',
-    };
-    this.payload_locales = {
-      accion: 'getLocAnex',
-      modo: '1',
-      contexto: 'ti-it',
-      desRuc: '',
-      nroRuc: '20123456789',
-    };
-    this.payload_rrll = {
-      accion: 'getRepLeg',
-      modo: '1',
-      contexto: 'ti-it',
-      desRuc: '',
-      nroRuc: '20610222171',
-    }
-  }
-
-  // Parsing the economic activity
-  private parseEconomicActivity(raw_data: string | undefined): { cod: string, description: string } | undefined {
-    if (raw_data == undefined) return raw_data;
-
-    let values = raw_data.split('-').map((item) => item.trim());
-    return {
-      cod: values[1],
-      description: values[2]
-    };
-  };
-
-  private parseUbication(address: string): { direccion: string, departamento: string, provincia: string, distrito: string} {
-    const departamentos_peru = ['AMAZONAS', 'ANCASH', 'APURIMAC', 'AREQUIPA', 'AYACUCHO', 'CAJAMARCA', 'PROV. CONST. DEL CALLAO ', 'CUSCO', 'HUANCAVELICA', 'HUANUCO', 'ICA', 'JUNIN', 'LA LIBERTAD', 'LAMBAYEQUE', 'LIMA', 'LORETO', 'MADRE DE DIOS', 'MOQUEGUA', 'PASCO', 'PIURA', 'PUNO', 'SAN MARTIN', 'TACNA', 'TUMBES', 'UCAYALI'];
-    let result = {
-      direccion: address.replace(/\s+/g, ' ').trim(),
-      departamento: '',
-      provincia: '',
-      distrito: ''
-    };
-    let streams: string[] = address.split('-');
-    if (streams.length >= 3) {
-      result.distrito = streams.pop()?.trim() || '-';
-      result.provincia = streams.pop()?.trim() || '-';
-      result.departamento = departamentos_peru.find((item) => [...streams].join(' ').split(' ').slice(-1 * item.split(' ').length).join(' ').includes(item)) || '';
-    }
-    return result;
-  }
-
-  private parseLocales(ruc: string, html: string): IBusinessLocales {
-    const document = load(html);
-    const table = document('table.table');
-    if (!table.length) return {
-      ruc: ruc,
-      cantidad: 0,
-      locales: []
-    };
-
-    const result: { ruc: string, cantidad: number, locales: any[] } = { ruc: ruc, cantidad: 0, locales: [] };
-    table.find('tbody tr').each((index, row) => {
-      const columns = document(row).find('td');
-      result.locales.push({
-        codigo: document(columns[0]).text().trim(),
-        tipo: document(columns[1]).text().trim(),
-        ubicacion: this.parseUbication(document(columns[2]).text().trim()),
-        actividad_economica: document(columns[3]).text().trim()
-      })
-    });
-    result.cantidad = result.locales.length;
-    return result;
-  }
-
-  private parseWorkers(ruc: string, html: string): IBusinessEmployees | undefined {
-    const document = load(html);
-    const table = document('table.table');
-    if (!table.length) return undefined;
-
-    const result: { [period: string]: IEmployees } = {};
-    table.find('tbody tr').each((_, row) => {
-      const columns = document(row).find('td');
-      result[document(columns[0]).text().trim()] = {
-        trabajadores: parseInt(document(columns[1]).text().trim()) || 0,
-        pensionistas: parseInt(document(columns[2]).text().trim()) || 0,
-        prestadores_servicios: parseInt(document(columns[3]).text().trim()) || 0,
-      }
-    });
-
-    if (Object.values(result).length <= 0)
-      return undefined
-
-    const {
-      trabajadores: last_trabajadores,
-      pensionistas: last_pensionistas,
-      prestadores_servicios: last_prestadores_servicios
-    } = Object.values(result).at(-1) as IEmployees;
-
-    return {
-      ruc: ruc,
-      trabajadores: last_trabajadores,
-      pensionistas: last_pensionistas,
-      prestadores_servicios: last_prestadores_servicios,
-      historial: result
-    };
-  };
-
-  private parseLegalRepresentative(ruc: string, html: string): IBusinessLegalRepresentative | undefined {
-    const document = load(html);
-    const values = document('body').find('td').map((_, item) => document(item).text().replace(/\s+/g, ' ').trim()).get()
-
-    if(values.length <= 0)
-      return undefined;
-
-    return {
-      ruc: ruc,
-      tipo_documento: values.length >= 1 ? values[0] : 'NO ENCONTRADO',
-      documento: values.length >= 2 ? values[1] : 'NO ENCONTRADO',
-      nombre: values.length >= 3 ? values[2] : 'NO ENCONTRADO',
-      cargo: values.length >= 4 ? values[3] : 'NO ENCONTRADO',
-      fecha: values.length >= 5 ? values[4] : 'NO ENCONTRADO'
-    }
-  }
-
-  private parseBusiness(ruc: string, html_general: string): IBusiness {
-    let document = load(html_general);
-    let data_general = document('.list-group-item');
-    if (data_general.length === 0) {
-      throw new Error('No data found');
-    }
-
-    let parsed_domicilio_fiscal = this.parseUbication(document('div:contains("Domicilio Fiscal:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace(/\s+/g, ' '));
-    let parsed_actividad_economica_principal = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[0]);
-    let parsed_actividad_economica_secundaria = this.parseEconomicActivity(document('div:contains("Actividad(es) Económica(s):")').closest('.list-group-item').find('tbody tr td').map((index, element) => document(element).text()).get()[1] || undefined);
-
-    let raw_data: IBusiness = {
-      ruc: ruc,
-      razon_social: document('div:contains("Número de RUC:")').closest('.list-group-item').find('.row .col-sm-7 h4').text().trim().split('-').slice(1).join('-').trim(),
-      tipo_contribuyente: document('div:contains("Tipo Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().trim(),
-      nombre_comercial: document('div:contains("Nombre Comercial:")').closest('.list-group-item').find('.row .col-sm-7 p').text().replace('Afecto al Nuevo RUS: SI', '').trim(),
-      fecha_inscripcion: document('div:contains("Fecha de Inscripción:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(0).text().trim(),
-      fecha_inicio_actividades: document('div:contains("Fecha de Inicio de Actividades:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(1).text().trim(),
-      estado_contribuyente: document('div:contains("Estado del Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().split('Fecha')[0].trim(),
-      condicion_contribuyente: document('div:contains("Condición del Contribuyente:")').closest('.list-group-item').find('.row .col-sm-7 p').text().split('Fecha')[0].trim(),
-      sistema_emision_comprobante: document('div:contains("Sistema Emisión de Comprobante:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(0).text().trim(),
-      actividad_exterior: document('div:contains("Actividad Comercio Exterior:")').closest('.list-group-item').find('.row .col-sm-3 p').eq(1).text().trim(),
-      domicilio_fiscal: parsed_domicilio_fiscal,
-      actividad_economica_principal: parsed_actividad_economica_principal,
-      actividad_economica_secundaria: parsed_actividad_economica_secundaria,
-    };
-
-    let possible_estado_constribuyente = ["INACTIVO", "ACTIVO", "SUSPENSION TEMPORAL", "BAJA PROVISIONAL DE OFICIO", "BAJA PROVISIONAL", "BAJA DEFINITIVA DE OFICIO", "BAJA DEFINITIVA"]
-      .filter((item: string) => raw_data.estado_contribuyente.includes(item))[0];
-    let possible_condicion_contribuyente = ["NO HABIDO", "HABIDO", "NO HALLADO"]
-      .filter((item: string) => raw_data.condicion_contribuyente.includes(item))[0];
-
-    raw_data.estado_contribuyente = (possible_estado_constribuyente && possible_estado_constribuyente.length > 0) ? possible_estado_constribuyente : raw_data.estado_contribuyente;
-    raw_data.condicion_contribuyente = (possible_condicion_contribuyente && possible_condicion_contribuyente.length > 0) ? possible_condicion_contribuyente : raw_data.condicion_contribuyente;
-
-    return raw_data;
-  };
-
-  private async fetch_business(ruc: string, fetcher?: FetchCookieImpl<any, RequestInit, Response>): Promise<() => IBusiness> {
-    try {
-      // Update the ruc of business before request
-      this.payload_general['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
-      let response_general = await fetchWithCookies(this.base_url, {
-        method: this.method,
-        headers: this.headers,
-        body: new URLSearchParams(this.payload_general).toString(),
-      });
-
-      // Verify if the request was successfull
-      if (!response_general.ok) {
-        throw new Error(`HTTP error! status (BUSINESS GENERAL): [${response_general.status}]`);
-      }
-
-      // Set the characters to UTF-8
-      const html_general = await getUtf8Text(response_general);
-
-      // Parse the informtation to an object
-
-      return () => this.parseBusiness(ruc, html_general); // Ensure parseBusiness is async if it returns a Promise
-    } catch (e: any) {
-      throw e
-    }
-  }
-
-  private async fetch_employees(ruc: string, fetcher?: FetchCookieImpl<any, RequestInit, Response>): Promise<() => IBusinessEmployees | undefined> {
-    try {
-      // Update the ruc of business before request
-      this.payload_trabajadores['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
-      let response_trabajadores = await fetchWithCookies(this.base_url, {
-        method: this.method,
-        headers: this.headers,
-        body: new URLSearchParams(this.payload_trabajadores).toString(),
-      });
-
-      // Verify if the request was successfull
-      if (!response_trabajadores.ok) {
-        throw new Error(`HTTP error! status (BUSINESS EMPLOYEES): [${response_trabajadores.status}]`);
-      }
-
-      // Set the characters to UTF-8
-      const html_trabajadores = await getUtf8Text(response_trabajadores);
-
-      // Parse the informtation to an object
-      return () => this.parseWorkers(ruc, html_trabajadores);;
-    } catch (e: any) {
-      throw e
-    }
-  }
-
-  private async fetch_locales(ruc: string, fetcher?: FetchCookieImpl<any, RequestInit, Response>): Promise<() => IBusinessLocales | undefined> {
-    try {
-      // Update the ruc of business before request
-      this.payload_locales['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
-      let response_locales = await fetchWithCookies(this.base_url, {
-        method: this.method,
-        headers: this.headers,
-        body: new URLSearchParams(this.payload_locales).toString(),
-      });
-
-      // Verify if the request was successfull
-      if (!response_locales.ok) {
-        throw new Error(`HTTP error! status (BUSINESS LOCALES): [${response_locales.status}]`);
-      }
-
-      // Set the characters to UTF-8
-      const html_locales = await getUtf8Text(response_locales);
-
-      // Parse the informtation to an object
-      return () => this.parseLocales(ruc, html_locales);
-    } catch (e: any) {
-      throw e
-    }
-  }
-
-  private async fetch_rrll(ruc: string, fetcher?: FetchCookieImpl<any, RequestInit, Response>): Promise<() => IBusinessLegalRepresentative | undefined> {
-    try {
-      // Update the ruc of business before request
-      this.payload_rrll['nroRuc'] = ruc;
-      const fetchWithCookies = fetcher ?? fetchCookie(fetch, cookieJar);
-      let response_rrll = await fetchWithCookies(this.base_url, {
-        method: this.method,
-        headers: this.headers,
-        body: new URLSearchParams(this.payload_rrll).toString(),
-      });
-
-      // Verify if the request was successfull
-      if (!response_rrll.ok) {
-        throw new Error(`HTTP error! status (BUSINESS REPRESENTANTE): [${response_rrll.status}]`);
-      }
-
-      // Set the characters to UTF-8
-      const html_rrll = await getUtf8Text(response_rrll);
-
-      // Parse the informtation to an object
-      return () => this.parseLegalRepresentative(ruc, html_rrll);
-    } catch (e: any) {
-      throw e
-    }
-  }
-
-  override async fetch_data(ruc: string): Promise<any> {
-    const fetchWithCookies = fetchCookie(fetch, cookieJar);
-    const [business, employees, locales, rrll] = await Promise.all([
-      await this.fetch_business(ruc, fetchWithCookies),
-      await this.fetch_employees(ruc, fetchWithCookies),
-      await this.fetch_locales(ruc, fetchWithCookies),
-      await this.fetch_rrll(ruc, fetchWithCookies),
-    ]);
-    return {
-      business: business,
-      employees: employees,
-      locales: locales,
-      representante_legal: rrll,
-    }
-  }
-
-  async fetch_bulk_data(rucs: string[]): Promise<any[]> {
-    const fetchWithCookies = fetchCookie(fetch, cookieJar);
-
-    const data_to_parse = []
-
-    for await (const ruc of rucs) {
-      console.time(`${ruc} requested`);
-      data_to_parse.push([
-        await this.fetch_business(ruc, fetchWithCookies),
-        await this.fetch_employees(ruc, fetchWithCookies),
-        await this.fetch_locales(ruc, fetchWithCookies),
-        await this.fetch_rrll(ruc, fetchWithCookies),
-      ])
-
-    }
-
-    const responses = []
-    for await (const data of data_to_parse) {
-      const [business, employees, locales, rrll] = await Promise.all(data);
-      responses.push({
-        business: business(),
-        employees: employees(),
-        locales: locales(),
-        representante_legal: rrll(),
       })
     }
 
@@ -1049,9 +708,9 @@ export class BusinnessRequesterByDNI extends BusinnessRequesterByRUC {
     document('a.aRucs').each((index, element) => {
       const rucText = document(element).find('h4.list-group-item-heading').first().text().trim();
       if (rucText) {
-        // Filtrar el RUC, eliminando el prefijo "RUC:"
+        // Filter the RUC number, deleting the "RUC:" prefix
         const ruc = rucText.replace('RUC:', '').trim();
-        rucs.push(ruc); // Agregamos el RUC al array
+        rucs.push(ruc); // Add the RUC number to array
       }
     });
 
@@ -1080,7 +739,5 @@ export class BusinnessRequesterByDNI extends BusinnessRequesterByRUC {
     return business_information[0]
   }
 }
-
-
 
 

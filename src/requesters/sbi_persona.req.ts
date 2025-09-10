@@ -1,8 +1,6 @@
 import { load } from "cheerio";
 import { IAddress, IConsultaRucv1, IEmployees, ILocal } from "../utils/interfaces";
-import { getUtf8Text } from "../utils/utils";
-import { CookieJar } from "tough-cookie";
-import fetchCookie from "fetch-cookie";
+import { sleep } from "../utils/utils";
 import { BaseRequester } from "./consulta_ruc.req";
 
 export interface IResponseSBIPersonaNumero {
@@ -241,6 +239,8 @@ export class SbiPersonaRequester extends BaseRequester<string, IPerson> {
     }));
 
     const list_partial_person_phone = await this.fetch_bulk_person_phone(documents);
+
+    await sleep(20);
     const list_partial_email = await this.fetch_bulk_email(documents);
 
     Object.entries(list_partial_email).forEach(([key, value]) => {

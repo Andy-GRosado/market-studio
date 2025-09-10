@@ -14,4 +14,12 @@ export const getUtf8Text = async (response: Response): Promise<string> => {
   return decodedText;
 };
 
+/**
+ *
+ * @param seconds Number of timeout seconds
+ * @returns a Promise that resolves in the time specified
+ */
+export function sleep(seconds: number) {
+  return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+}
 

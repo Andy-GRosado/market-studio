@@ -10,6 +10,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.SbiPersonaRequester = void 0;
+const utils_1 = require("../utils/utils");
 const consulta_ruc_req_1 = require("./consulta_ruc.req");
 let SESSION_KEY = "";
 class SbiPersonaRequester extends consulta_ruc_req_1.BaseRequester {
@@ -72,6 +73,7 @@ class SbiPersonaRequester extends consulta_ruc_req_1.BaseRequester {
             if (!response_phones.ok) {
                 throw new Error(`The request was rejected by ${this.base_url}`);
             }
+            console.log(yield response_phones.json());
             const { data: data_phones } = yield response_phones.json();
             if (data_phones.length <= 0) {
                 throw new Error(`There is not information of phones ${this.base_url}`);
@@ -166,6 +168,7 @@ class SbiPersonaRequester extends consulta_ruc_req_1.BaseRequester {
                 numero: "",
             }));
             const list_partial_person_phone = yield this.fetch_bulk_person_phone(documents);
+            yield (0, utils_1.sleep)(20);
             const list_partial_email = yield this.fetch_bulk_email(documents);
             Object.entries(list_partial_email).forEach(([key, value]) => {
                 if (list_partial_email[key]) {

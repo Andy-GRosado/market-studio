@@ -15,6 +15,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 };
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.getUtf8Text = void 0;
+exports.sleep = sleep;
 const getUtf8Text = (response) => __awaiter(void 0, void 0, void 0, function* () {
     const contentType = response.headers.get('Content-Type');
     const charsetMatch = contentType === null || contentType === void 0 ? void 0 : contentType.match(/charset=([a-zA-Z0-9-]+)/);
@@ -24,3 +25,11 @@ const getUtf8Text = (response) => __awaiter(void 0, void 0, void 0, function* ()
     return decodedText;
 });
 exports.getUtf8Text = getUtf8Text;
+/**
+ *
+ * @param seconds Number of timeout seconds
+ * @returns a Promise that resolves in the time specified
+ */
+function sleep(seconds) {
+    return new Promise(resolve => setTimeout(resolve, seconds * 1000));
+}

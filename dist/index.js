@@ -1,9 +1,13 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.getUtf8Text = exports.BusinnessRequesterByRUC = exports.BusinnessRequesterByDNI = exports.BaseRequester = void 0;
+exports.getUtf8Text = exports.SbiPersonaRequester = exports.ChecaTuLineaRequester = exports.BusinnessRequesterByRUC = exports.BusinnessRequesterByDNI = exports.BaseRequester = void 0;
 var consulta_ruc_req_1 = require("./requesters/consulta_ruc.req");
 Object.defineProperty(exports, "BaseRequester", { enumerable: true, get: function () { return consulta_ruc_req_1.BaseRequester; } });
 Object.defineProperty(exports, "BusinnessRequesterByDNI", { enumerable: true, get: function () { return consulta_ruc_req_1.BusinnessRequesterByDNI; } });
 Object.defineProperty(exports, "BusinnessRequesterByRUC", { enumerable: true, get: function () { return consulta_ruc_req_1.BusinnessRequesterByRUCv2; } });
+var checa_linea_req_1 = require("./requesters/checa_linea.req");
+Object.defineProperty(exports, "ChecaTuLineaRequester", { enumerable: true, get: function () { return checa_linea_req_1.ChecaTuLineaRequester; } });
+var sbi_persona_req_1 = require("./requesters/sbi_persona.req");
+Object.defineProperty(exports, "SbiPersonaRequester", { enumerable: true, get: function () { return sbi_persona_req_1.SbiPersonaRequester; } });
 var utils_1 = require("./utils/utils");
 Object.defineProperty(exports, "getUtf8Text", { enumerable: true, get: function () { return utils_1.getUtf8Text; } });

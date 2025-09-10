@@ -96,7 +96,7 @@ class ChecaTuLineaRequester extends BaseRequester {
                 }
             });
             const result = {
-                id: ruc,
+                ruc: ruc,
                 data: data_lineas,
                 claro: lineas_claro,
                 entel: lineas_entel,

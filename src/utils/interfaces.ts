@@ -111,7 +111,7 @@ export interface IConsultaRucv2 {
 
 
 export interface IChecaTuLinea {
-  id: string,
+  ruc: string,
   data: {
     company: string,
     count: number,

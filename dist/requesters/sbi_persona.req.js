@@ -168,7 +168,9 @@ class SbiPersonaRequester extends consulta_ruc_req_1.BaseRequester {
             const list_partial_person_phone = yield this.fetch_bulk_person_phone(documents);
             const list_partial_email = yield this.fetch_bulk_email(documents);
             Object.entries(list_partial_email).forEach(([key, value]) => {
-                list_partial_person_phone[key].emails = list_partial_email[key];
+                if (list_partial_email[key]) {
+                    list_partial_person_phone[key].emails = list_partial_email[key];
+                }
             });
             return Object.values(list_partial_person_phone);
         });

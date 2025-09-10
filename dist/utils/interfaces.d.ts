@@ -100,7 +100,7 @@ export interface IConsultaRucv2 {
     last_update?: Date;
 }
 export interface IChecaTuLinea {
-    id: string;
+    ruc: string;
     data: {
         company: string;
         count: number;

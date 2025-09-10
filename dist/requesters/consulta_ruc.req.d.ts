@@ -39,6 +39,7 @@ export declare class BusinnessRequesterByRUC extends BaseRequester<string, ICons
  * Improved business requester
  */
 export declare class BusinnessRequesterByRUCv2 extends BaseRequester<string, IConsultaRuc> {
+    private cookie_jar;
     private base_url;
     private method;
     private headers;
@@ -59,31 +60,6 @@ export declare class BusinnessRequesterByRUCv2 extends BaseRequester<string, ICo
     private fetch_rrll;
     fetch_data(ruc: string): Promise<IConsultaRuc>;
     fetch_bulk_data(rucs: string[]): Promise<IConsultaRuc[]>;
-}
-/***
- * Experimental business requester to separate logic of request and parsing
- */
-export declare class BusinnessRequesterByRUCv3 extends BaseRequester<string, IConsultaRucv1> {
-    private base_url;
-    private method;
-    private headers;
-    private payload_general;
-    private payload_trabajadores;
-    private payload_locales;
-    private payload_rrll;
-    constructor();
-    private parseEconomicActivity;
-    private parseUbication;
-    private parseLocales;
-    private parseWorkers;
-    private parseLegalRepresentative;
-    private parseBusiness;
-    private fetch_business;
-    private fetch_employees;
-    private fetch_locales;
-    private fetch_rrll;
-    fetch_data(ruc: string): Promise<any>;
-    fetch_bulk_data(rucs: string[]): Promise<any[]>;
 }
 export declare class BusinnessRequesterByDNI extends BusinnessRequesterByRUC {
     private request_by_dni;

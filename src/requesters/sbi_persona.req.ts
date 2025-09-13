@@ -143,7 +143,6 @@ export class SbiPersonaRequester extends BaseRequester<string, IPerson> {
       throw new Error(`The request was rejected by ${this.base_url}`);
     }
 
-    console.log(await response_phones.json())
     const { data: data_phones }: { data: IResponseSBIPersonaNumero[] } = await response_phones.json();
 
     if (data_phones.length <= 0){
@@ -240,7 +239,7 @@ export class SbiPersonaRequester extends BaseRequester<string, IPerson> {
 
     const list_partial_person_phone = await this.fetch_bulk_person_phone(documents);
 
-    await sleep(20);
+    await sleep(15);
     const list_partial_email = await this.fetch_bulk_email(documents);
 
     Object.entries(list_partial_email).forEach(([key, value]) => {

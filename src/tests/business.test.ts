@@ -279,3 +279,25 @@ describe('RUC 20 - business fiscal address', () => {
   });
 });
 
+describe('RUC 20 - Legal Representatives', () => {
+  const rucs = [
+    '20117336205',
+  ]
+
+  const hashmap_business: Record<string, IConsultaRucv2> = {};
+
+  beforeAll(async () => {
+    const requester = new BusinnessRequesterByRUCv2();
+    const list_business = await requester.fetch_bulk_data(rucs)
+    list_business.forEach(item => {
+      if(!hashmap_business[item.general.ruc]) {
+        hashmap_business[item.general.ruc] = item;
+      }
+    })
+  })
+
+  it('Should have 2 legal representatives', () => {
+    console.log(hashmap_business['20117336205'].representantes);
+    expect(hashmap_business['20117336205'].representantes).toHaveLength(2);
+  });
+});

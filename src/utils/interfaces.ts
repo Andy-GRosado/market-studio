@@ -104,7 +104,7 @@ export interface IConsultaRucv2 {
   general: IBusiness,
   employees?: IBusinessEmployees,
   locales?: IBusinessLocales,
-  representante_legal?: IBusinessLegalRepresentative
+  representantes: IBusinessLegalRepresentative[]
   last_update?: Date
 }
 
